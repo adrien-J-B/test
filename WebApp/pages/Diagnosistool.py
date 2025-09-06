@@ -5,28 +5,23 @@ from PIL import Image
 import numpy as np
 import time
 import pandas as pd
+import random
+
+# --- Page Configuration ---
+st.set_page_config(
+    page_title="DR-AI-Vision | Diagnosis Tool",
+    page_icon="favicon1.png",
+    layout="wide",
+)
 
 # --- DUMMY AI FUNCTION ---
-# This simulates the AI model's output and is now more detailed.
 def get_dummy_prediction(image_array):
-    """
-    A placeholder function that mimics the model's output.
-    It now randomly selects a stage and returns a full set of fake
-    confidence scores for the bar chart.
-    """
     with st.spinner('AI is analyzing the image...'):
-        time.sleep(2)  # Simulate a 2-second delay
-
-    import random
+        time.sleep(2)
     
-    # Generate random confidences for each stage
     confidences = [random.uniform(0.1, 0.9) for _ in range(5)]
     total_confidence = sum(confidences)
-    
-    # Normalize the confidences to sum to 1.0 (for a better chart)
     normalized_confidences = [c / total_confidence for c in confidences]
-
-    # Find the predicted stage (highest confidence)
     predicted_stage_index = normalized_confidences.index(max(normalized_confidences))
 
     return {
@@ -42,135 +37,260 @@ def get_dummy_prediction(image_array):
 
 # --- HELPER FUNCTIONS ---
 def create_placeholder_image(size=(512, 512), text="Placeholder"):
-    img = Image.new('RGB', size, color='grey')
+    img = Image.new('RGB', size, color='#cccccc')
     return img
 
-# --- UI MARKDOWN STYLES ---
+# --- Custom CSS to mimic C-Care ---
 st.markdown("""
 <style>
-.severity-box {
-    border: 2px solid #ddd;
-    border-radius: 10px;
-    padding: 10px;
-    margin-bottom: 10px;
-    text-align: center;
-    transition: all 0.3s ease;
-}
-.severity-box.severity-0 { background-color: #A5D6A7; border-color: #81C784; } /* Brighter Green */
-.severity-box.severity-1 { background-color: #A5D6A7; border-color: #81C784; } /* Brighter Green */
-.severity-box.severity-2 { background-color: #FFF176; border-color: #FFEB3B; } /* Brighter Yellow */
-.severity-box.severity-3 { background-color: #EF9A9A; border-color: #E57373; } /* Brighter Red */
-.severity-box.severity-4 { background-color: #EF9A9A; border-color: #E57373; } /* Brighter Red */
+    /* Global Fonts and Colors */
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+    
+    body {
+        font-family: 'Roboto', sans-serif;
+        color: #333333;
+        background-color: #f6f7f9;
+    }
+    
+    /* Main container and section styling */
+    .st-emotion-cache-183-b7-e2 {
+        padding: 0;
+    }
+    .st-emotion-cache-183-b7-e2 .st-emotion-cache-183-b7-e2 {
+        padding: 2rem 4rem;
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+        color: #004d99;
+        font-weight: 500;
+    }
+    
+    .section-title {
+        font-size: 2rem;
+        font-weight: 500;
+        margin-bottom: 2rem;
+        text-align: center;
+    }
+    
+    .instruction-text {
+        text-align: center;
+        margin-bottom: 2rem;
+        color: #666666;
+    }
+    
+    /* ICDR Scale Styling */
+    .icdr-scale-container {
+        display: flex;
+        justify-content: space-around;
+        gap: 1.5rem;
+        margin-bottom: 3rem;
+        background-color: #ffffff;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    .icdr-scale-box {
+        text-align: center;
+        flex: 1;
+        padding: 1rem;
+        border-radius: 6px;
+        border: 1px solid #e0e0e0;
+        transition: transform 0.2s;
+    }
+    .icdr-scale-box:hover {
+        transform: translateY(-5px);
+    }
+    .icdr-scale-box h5 {
+        margin-bottom: 0.5rem;
+        color: #ffffff;
+        font-weight: 600;
+    }
+    .icdr-scale-box p {
+        margin: 0;
+        font-size: 0.9em;
+        color: #f0f0f0;
+    }
+    
+    /* Specific colors for each stage */
+    .icdr-scale-box.stage-0 { background-color: #5cb85c; border-color: #4cae4c; } /* Green */
+    .icdr-scale-box.stage-1 { background-color: #8cd47e; border-color: #7bbd6c; } /* Lighter Green */
+    .icdr-scale-box.stage-2 { background-color: #f0ad4e; border-color: #eea236; } /* Orange/Yellow */
+    .icdr-scale-box.stage-3 { background-color: #d9534f; border-color: #d43f3a; } /* Red */
+    .icdr-scale-box.stage-4 { background-color: #c9302c; border-color: #ac2925; } /* Darker Red */
 
-.stButton>button {
-    height: 3em;
-    font-size: 1.1em;
-}
+    /* Main Content Blocks */
+    .content-block {
+        background-color: #ffffff;
+        padding: 2.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        margin-bottom: 2rem;
+    }
+    
+    /* Button Styling */
+    .st-emotion-cache-183-b7-e2 button {
+        background-color: #004d99;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 1rem 2rem;
+        font-size: 1rem;
+        font-weight: 500;
+        transition: background-color 0.3s, transform 0.2s;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .st-emotion-cache-183-b7-e2 button:hover {
+        background-color: #003366;
+        transform: translateY(-2px);
+    }
+    
+    /* Prediction Result Box */
+    .prediction-box {
+        background-color: #e6f7ff;
+        border-left: 5px solid #004d99;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-top: 1rem;
+    }
+    .prediction-box h4 {
+        color: #004d99;
+        margin-top: 0;
+    }
+    .prediction-box b {
+        color: #333333;
+    }
+    
+    /* New CSS to style the links */
+    .content-block ul {
+        margin-top: 1rem;
+    }
+    .content-block li a {
+        font-size: 1.1em; /* Makes the font a little bigger */
+        line-height: 1.6; /* Adds a bit of space between lines */
+    }
+
 </style>
 """, unsafe_allow_html=True)
 
+
 # --- ICDR SCALE & LINKS DATA ---
 ICDR_SCALE_INFO = {
-    0: {"name": "No DR", "color_class": "severity-0"},
-    1: {"name": "Mild Non-proliferative DR", "color_class": "severity-1"},
-    2: {"name": "Moderate Non-proliferative DR", "color_class": "severity-2"},
-    3: {"name": "Severe Non-proliferative DR", "color_class": "severity-3"},
-    4: {"name": "Proliferative DR", "color_class": "severity-4"}
+    0: {"name": "No DR"},
+    1: {"name": "Mild NPDR"},
+    2: {"name": "Moderate NPDR"},
+    3: {"name": "Severe NPDR"},
+    4: {"name": "Proliferative DR"},
 }
 
 RELATED_LINKS = {
     0: [
         {"text": "Diabetic Eye Disease Information", "url": "https://www.nei.nih.gov/learn-about-eye-health/eye-conditions-and-diseases/diabetic-retinopathy"},
-        {"text": "Preventing Diabetic Retinopathy", "url": "https://www.aao.org/eye-health/diseases/what-is-diabetic-retinopathy"}
+        {"text": "American Academy of Ophthalmology: DR", "url": "https://www.aao.org/eye-health/diseases/what-is-diabetic-retinopathy"},
+        {"text": "Diabetes.org: Eye Complications", "url": "https://www.diabetes.org/diabetes/complications/eye-complications"},
     ],
     1: [
-        {"text": "About Mild Non-proliferative DR", "url": "https://www.aao.org/eye-health/diseases/what-is-diabetic-retinopathy"},
-        {"text": "Managing Early Stage DR", "url": "https://www.webmd.com/diabetes/diabetic-retinopathy-stages"}
+        {"text": "Managing Early Stage DR", "url": "https://www.webmd.com/diabetes/diabetic-retinopathy-stages"},
+        {"text": "Preventing DR Progression", "url": "https://www.cdc.gov/diabetes/managing/complications.html"},
+        {"text": "Nonproliferative Diabetic Retinopathy", "url": "https://www.retina.org/resources/patient-information/macular-disease/diabetic-retinopathy"},
     ],
     2: [
-        {"text": "About Moderate Non-proliferative DR", "url": "https://www.eyecarecolorado.com/diabetic-retinopathy-stages-denver/"},
-        {"text": "Treatments for Diabetic Retinopathy", "url": "https://www.nei.nih.gov/learn-about-eye-health/eye-conditions-and-diseases/diabetic-retinopathy/treating-diabetic-retinopathy"}
+        {"text": "Treatments for Diabetic Retinopathy", "url": "https://www.nei.nih.gov/learn-about-eye-health/eye-conditions-and-diseases/diabetic-retinopathy/treating-diabetic-retinopathy"},
+        {"text": "Retina Associates of New York: DR", "url": "https://www.retinany.com/what-is-diabetic-retinopathy/"},
+        {"text": "Eye Health Information on DR", "url": "https://www.healthline.com/health/diabetes/diabetic-retinopathy-stages"},
     ],
     3: [
-        {"text": "About Severe Non-proliferative DR", "url": "https://www.webmd.com/diabetes/diabetic-retinopathy-stages"},
-        {"text": "Understanding Advanced DR", "url": "https://www.healthline.com/health/diabetes/diabetic-retinopathy-stages"}
+        {"text": "Understanding Advanced DR", "url": "https://www.healthline.com/health/diabetes/diabetic-retinopathy-stages"},
+        {"text": "Severe Nonproliferative DR Overview", "url": "https://www.aao.org/eye-health/diseases/diabetic-retinopathy-symptoms-treatment"},
+        {"text": "Clinical Practice Guidelines for DR", "url": "https://care.diabetesjournals.org/content/36/suppl_1/S19"},
     ],
     4: [
-        {"text": "About Proliferative DR (PDR)", "url": "https://www.moorfields.nhs.uk/mediaLocal/uvqpwxrq/proliferative-diabetic-retinopathy-pdr.pdf"},
-        {"text": "Advanced Treatments for PDR", "url": "https://www.bayarearetina.com/proliferative-diabetic-retinopathy"}
+        {"text": "Advanced Treatments for PDR", "url": "https://www.bayarearetina.com/proliferative-diabetic-retinopathy"},
+        {"text": "Proliferative Diabetic Retinopathy (PDR)", "url": "https://www.nei.nih.gov/learn-about-eye-health/eye-conditions-and-diseases/diabetic-retinopathy/treating-diabetic-retinopathy"},
+        {"text": "Vitrectomy and other PDR Treatments", "url": "https://www.moorfields.nhs.uk/mediaLocal/uvqpwxrq/proliferative-diabetic-retinopathy-pdr.pdf"},
     ]
 }
 
 # --- PAGE LAYOUT ---
-st.title("🩺 Diabetic Retinopathy Diagnosis Interface")
-st.markdown("Upload a retinal fundus image to get an AI-powered diagnosis and explanation.")
+st.markdown("<h2 class='section-title'>Diabetic Retinopathy Diagnosis Interface</h2>", unsafe_allow_html=True)
+st.markdown("<p class='instruction-text'>Upload a retinal image to receive an AI-powered diagnosis.</p>", unsafe_allow_html=True)
 
-# ICDR Scale at the top of the page
-st.subheader("ICDR Severity Scale")
-st.markdown("The AI model classifies images into these stages based on the following scale:")
+# ICDR Scale Section
+st.subheader("Classification Scale")
+st.markdown("<div class='icdr-scale-container'>", unsafe_allow_html=True)
 cols = st.columns(5)
 for stage, info in ICDR_SCALE_INFO.items():
     with cols[stage]:
         st.markdown(
-            f'<div class="severity-box {info["color_class"]}">'
-            f'<b>Stage {stage}</b><br>{info["name"]}'
+            f'<div class="icdr-scale-box stage-{stage}">'
+            f'<h5>Stage {stage}</h5>'
+            f'<p>{info["name"]}</p>'
             f'</div>',
             unsafe_allow_html=True
         )
+st.markdown("</div>", unsafe_allow_html=True)
 
-st.markdown("---")
+# Main Diagnosis Block
+with st.container():
+    st.markdown("<div class='content-block'>", unsafe_allow_html=True)
+    st.subheader("Step 1: Upload Patient's Retinal Image")
 
-# Initialize session state to store the prediction result
-if 'prediction' not in st.session_state:
-    st.session_state.prediction = None
+    if 'prediction' not in st.session_state:
+        st.session_state.prediction = None
 
-# Single image upload and diagnosis
-st.header("Image for Analysis")
-uploaded_file = st.file_uploader(
-    "Choose a retinal image...", type=["jpg", "png", "jpeg"], key="main_uploader"
-)
+    uploaded_file = st.file_uploader(
+        "Choose a retinal image...", type=["jpg", "png", "jpeg"], key="main_uploader"
+    )
 
-if uploaded_file is not None:
-    image = Image.open(uploaded_file)
-    st.image(image, caption="Uploaded Retinal Image", use_column_width=True)
+    if uploaded_file is not None:
+        image = Image.open(uploaded_file)
+        st.image(image, caption="Uploaded Retinal Image", use_column_width=True)
 
-    if st.button("Diagnose Image", use_container_width=True, type="primary"):
-        st.session_state.prediction = get_dummy_prediction(np.array(image))
-        # Rerun to update the UI with the result
-        st.experimental_rerun()
+        if st.button("Run AI Diagnosis", use_container_width=True):
+            st.session_state.prediction = get_dummy_prediction(np.array(image))
+            st.rerun()
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # --- DISPLAY RESULTS (if a prediction has been made) ---
 if st.session_state.prediction:
     pred = st.session_state.prediction
     
-    st.markdown("---")
-    st.subheader("🤖 AI Diagnosis Results")
+    st.markdown("<br>", unsafe_allow_html=True)
+    with st.container():
+        st.markdown("<div class='content-block'>", unsafe_allow_html=True)
+        st.subheader("Step 2: AI Diagnosis Results")
 
-    # Bar chart showing confidence for all stages
-    st.markdown("##### Model Confidence by Stage")
-    df = pd.DataFrame(pred['all_confidences'])
-    df['Confidence'] = df['Confidence'].map('{:.2%}'.format)
-    st.bar_chart(df, x="Stage", y="Confidence")
+        st.markdown(
+            f'<div class="prediction-box">'
+            f'<h4>Predicted Stage: {pred["stage_name"]}</h4>'
+            f'<p>Confidence: <b>{pred["confidence"]:.2%}</b></p>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+        
+        st.markdown("---")
+        
+        col_chart, col_heatmap = st.columns(2)
+        
+        with col_chart:
+            st.markdown("<h5>Confidence by Stage</h5>", unsafe_allow_html=True)
+            df = pd.DataFrame(pred['all_confidences'])
+            st.bar_chart(df, x="Stage", y="Confidence")
 
-    # Text box for the main diagnosis
-    severity_class = ICDR_SCALE_INFO[pred['stage']]['color_class']
-    st.markdown(
-        f'<div class="severity-box {severity_class}">'
-        f'<h3>{pred["stage_name"]}</h3>'
-        f'Confidence: <b>{pred["confidence"]:.2%}</b>'
-        f'</div>',
-        unsafe_allow_html=True
-    )
+        with col_heatmap:
+            st.markdown("<h5>Explainability: What the AI is looking at</h5>", unsafe_allow_html=True)
+            st.image(
+                pred['heatmap'],
+                caption="A heatmap shows the areas the model focused on.",
+                use_column_width=True
+            )
 
-    st.subheader("Explainability: What the AI is looking at")
-    st.image(
-        pred['heatmap'],
-        caption="A Grad-CAM Heatmap shows the areas the model focused on to make its diagnosis. Warmer colors indicate higher importance.",
-        use_column_width=True
-    ) 
+        st.markdown("---")
 
-    # --- DISPLAY RELATED LINKS ---
-    st.subheader("📚 Learn More About This Stage")
-    links = RELATED_LINKS.get(pred['stage'], [])
-    for link in links:
-        st.markdown(f"- [{link['text']}]({link['url']})", unsafe_allow_html=True)
+        st.subheader("Step 3: Learn More")
+        st.markdown("For a better understanding of this stage, explore the links below:")
+        links = RELATED_LINKS.get(pred['stage'], [])
+        for link in links:
+            st.markdown(f"<li><a href='{link['url']}'>{link['text']}</a></li>", unsafe_allow_html=True)
+        
+        st.markdown("</div>", unsafe_allow_html=True)
