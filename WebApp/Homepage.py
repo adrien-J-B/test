@@ -6,7 +6,7 @@ from PIL import Image
 
 # --- Page Configuration ---
 st.set_page_config(
-    page_title="DR-AI-Vision | Home",
+    page_title="GlucoVision | Home",
     page_icon="favicon1.png",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -202,7 +202,7 @@ with st.sidebar:
     st.markdown("<h2>Meet the Team</h2>", unsafe_allow_html=True)
     st.info(
         """
-        **Project:** DR-AI-Vision (Hackathon)
+        **** 
 
         - **Arya**
         - **Yogendra**

@@ -1,4 +1,4 @@
-# pages/1_Diagnosis_Tool.py
+# pages/Diagnosistool.py
 
 import streamlit as st
 from PIL import Image
@@ -15,13 +15,46 @@ st.set_page_config(
 )
 
 # --- DUMMY AI FUNCTION ---
-def get_dummy_prediction(image_array):
+def get_dummy_prediction(image_array, risk_factors=None):
     with st.spinner('AI is analyzing the image...'):
         time.sleep(2)
     
+    # Base confidence values
     confidences = [random.uniform(0.1, 0.9) for _ in range(5)]
     total_confidence = sum(confidences)
     normalized_confidences = [c / total_confidence for c in confidences]
+
+    # Adjust confidences based on risk factors
+    if risk_factors:
+        risk_score = 0
+        # Add points for each risk factor, with higher-impact factors getting more points
+        if risk_factors.get("diabetes_duration", 0) > 10:
+            risk_score += 0.1
+        if risk_factors.get("blood_sugar_control", 2) < 2: # 0=Poor, 1=Fair
+            risk_score += 0.2
+        if risk_factors.get("tobacco_use", False):
+            risk_score += 0.15
+        if risk_factors.get("pregnancy", False):
+            risk_score += 0.2
+        if risk_factors.get("high_bp", False):
+            risk_score += 0.1
+        if risk_factors.get("high_cholesterol", False):
+            risk_score += 0.1
+        
+        # Shift probability towards higher stages based on the calculated risk score
+        if risk_score > 0:
+            for i in range(len(normalized_confidences)):
+                # Decrease confidence for lower stages (0 and 1)
+                if i < 2:
+                    normalized_confidences[i] = max(0, normalized_confidences[i] - risk_score/2)
+                # Increase confidence for higher stages (3 and 4)
+                if i > 2:
+                    normalized_confidences[i] = min(1, normalized_confidences[i] + risk_score)
+            
+            # Re-normalize the confidences to sum to 1
+            total_confidence_new = sum(normalized_confidences)
+            normalized_confidences = [c / total_confidence_new for c in normalized_confidences]
+
     predicted_stage_index = normalized_confidences.index(max(normalized_confidences))
 
     return {
@@ -112,11 +145,11 @@ st.markdown("""
     }
     
     /* Specific colors for each stage */
-    .icdr-scale-box.stage-0 { background-color: #5cb85c; border-color: #4cae4c; } /* Green */
-    .icdr-scale-box.stage-1 { background-color: #8cd47e; border-color: #7bbd6c; } /* Lighter Green */
-    .icdr-scale-box.stage-2 { background-color: #f0ad4e; border-color: #eea236; } /* Orange/Yellow */
-    .icdr-scale-box.stage-3 { background-color: #d9534f; border-color: #d43f3a; } /* Red */
-    .icdr-scale-box.stage-4 { background-color: #c9302c; border-color: #ac2925; } /* Darker Red */
+    .icdr-scale-box.stage-0 { background-color: #5cb85c; border-color: #4cae4c; }
+    .icdr-scale-box.stage-1 { background-color: #8cd47e; border-color: #7bbd6c; }
+    .icdr-scale-box.stage-2 { background-color: #f0ad4e; border-color: #eea236; }
+    .icdr-scale-box.stage-3 { background-color: #d9534f; border-color: #d43f3a; }
+    .icdr-scale-box.stage-4 { background-color: #c9302c; border-color: #ac2925; }
 
     /* Main Content Blocks */
     .content-block {
@@ -125,6 +158,11 @@ st.markdown("""
         border-radius: 8px;
         box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         margin-bottom: 2rem;
+    }
+    
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background-color: #008080 !important; /* Deep sea-green */
     }
     
     /* Button Styling */
@@ -160,15 +198,28 @@ st.markdown("""
         color: #333333;
     }
     
-    /* New CSS to style the links */
-    .content-block ul {
-        margin-top: 1rem;
-    }
+    /* More specific CSS for the links */
     .content-block li a {
-        font-size: 1.1em; /* Makes the font a little bigger */
-        line-height: 1.6; /* Adds a bit of space between lines */
+        font-size: 1.2em !important;
+        line-height: 1.8 !important;
+        margin-bottom: 0.5em !important;
+        display: block !important;
     }
 
+    /* Style for the resized image preview */
+    .stImage > img {
+        max-width: 50% !important;
+        height: auto;
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    /* Adjust button placement */
+    .center-button {
+        text-align: center;
+        margin-top: 1rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -243,12 +294,59 @@ with st.container():
 
     if uploaded_file is not None:
         image = Image.open(uploaded_file)
-        st.image(image, caption="Uploaded Retinal Image", use_column_width=True)
+        
+        # Display the uploaded image and Run Diagnosis button
+        col1, col2 = st.columns(2)
+        with col1:
+            st.image(image, caption="Uploaded Retinal Image", use_container_width=True)
+        with col2:
+            st.markdown("### Initial Analysis")
+            st.markdown("Click the button below to get an initial diagnosis based on the fundus image alone.")
+            if st.button("Run AI Diagnosis", use_container_width=True):
+                st.session_state.prediction = get_dummy_prediction(np.array(image))
+                st.session_state.image_uploaded = True
+                st.rerun()
 
-        if st.button("Run AI Diagnosis", use_container_width=True):
-            st.session_state.prediction = get_dummy_prediction(np.array(image))
-            st.rerun()
+        st.markdown("<br><br>", unsafe_allow_html=True)
 
+        # --- NEW: RISK FACTOR FORM ---
+        with st.form("risk_factor_form"):
+            st.subheader("Step 2: Add Risk Factor Details (Optional)")
+            st.markdown("Input additional information to refine the probability of a higher-risk diagnosis.")
+            
+            # Form Inputs
+            col_form1, col_form2 = st.columns(2)
+            with col_form1:
+                diabetes_duration = st.number_input(
+                    "Diabetes Duration (in years)", min_value=0, max_value=50, value=5, step=1
+                )
+                blood_sugar_control = st.radio(
+                    "Blood Sugar Control",
+                    options=["Poor", "Fair", "Good"],
+                    index=2, # Default to Good
+                )
+            
+            with col_form2:
+                is_pregnant = st.checkbox("Currently Pregnant")
+                uses_tobacco = st.checkbox("Tobacco User")
+                has_high_bp = st.checkbox("High Blood Pressure")
+                has_high_cholesterol = st.checkbox("High Cholesterol")
+
+            submitted = st.form_submit_button("Recalculate with Risk Factors")
+            
+            if submitted:
+                risk_factors = {
+                    "diabetes_duration": diabetes_duration,
+                    "blood_sugar_control": ["Poor", "Fair", "Good"].index(blood_sugar_control),
+                    "pregnancy": is_pregnant,
+                    "tobacco_use": uses_tobacco,
+                    "high_bp": has_high_bp,
+                    "high_cholesterol": has_high_cholesterol
+                }
+                # Recalculate and update the session state
+                st.session_state.prediction = get_dummy_prediction(np.array(image), risk_factors)
+                st.rerun()
+                
     st.markdown("</div>", unsafe_allow_html=True)
 
 # --- DISPLAY RESULTS (if a prediction has been made) ---
@@ -258,7 +356,7 @@ if st.session_state.prediction:
     st.markdown("<br>", unsafe_allow_html=True)
     with st.container():
         st.markdown("<div class='content-block'>", unsafe_allow_html=True)
-        st.subheader("Step 2: AI Diagnosis Results")
+        st.subheader("Final Diagnosis Results")
 
         st.markdown(
             f'<div class="prediction-box">'
@@ -282,8 +380,9 @@ if st.session_state.prediction:
             st.image(
                 pred['heatmap'],
                 caption="A heatmap shows the areas the model focused on.",
-                use_column_width=True
+                use_container_width=True
             )
+            
 
         st.markdown("---")
 
