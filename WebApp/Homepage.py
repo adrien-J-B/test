@@ -43,10 +43,6 @@ with col1:
         diagnostic aid for healthcare professionals and patients.
         """
     )
-    st.info(
-        "**Navigate to the 'Diagnosis Tool' page from the sidebar to try it out!**",
-        icon="👈"
-    )
 
 with col2:
     # You can replace this with a more relevant image for your project

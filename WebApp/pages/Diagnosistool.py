@@ -4,43 +4,46 @@ import streamlit as st
 from PIL import Image
 import numpy as np
 import time
+import pandas as pd
 
 # --- DUMMY AI FUNCTION ---
 # This simulates the AI model's output and is now more detailed.
 def get_dummy_prediction(image_array):
     """
     A placeholder function that mimics the model's output.
-    It now randomly selects a stage to make the demo more dynamic.
+    It now randomly selects a stage and returns a full set of fake
+    confidence scores for the bar chart.
     """
     with st.spinner('AI is analyzing the image...'):
-        time.sleep(2) # Simulate a 2-second delay
+        time.sleep(2)  # Simulate a 2-second delay
 
-    # Let's randomly pick a severity for a more dynamic demo
     import random
-    stages = [
-        {"stage": 0, "stage_name": "No DR", "confidence": 0.98},
-        {"stage": 1, "stage_name": "Mild NPDR", "confidence": 0.92},
-        {"stage": 2, "stage_name": "Moderate NPDR", "confidence": 0.88},
-        {"stage": 3, "stage_name": "Severe NPDR", "confidence": 0.95},
-        {"stage": 4, "stage_name": "Proliferative DR", "confidence": 0.91},
-    ]
     
-    selected_stage = random.choice(stages)
-    selected_stage["heatmap"] = Image.open("placeholder_heatmap.png")
+    # Generate random confidences for each stage
+    confidences = [random.uniform(0.1, 0.9) for _ in range(5)]
+    total_confidence = sum(confidences)
     
-    return selected_stage
+    # Normalize the confidences to sum to 1.0 (for a better chart)
+    normalized_confidences = [c / total_confidence for c in confidences]
+
+    # Find the predicted stage (highest confidence)
+    predicted_stage_index = normalized_confidences.index(max(normalized_confidences))
+
+    return {
+        "stage": predicted_stage_index,
+        "stage_name": ICDR_SCALE_INFO[predicted_stage_index]['name'],
+        "confidence": normalized_confidences[predicted_stage_index],
+        "all_confidences": {
+            "Stage": [info["name"] for info in ICDR_SCALE_INFO.values()],
+            "Confidence": normalized_confidences
+        },
+        "heatmap": create_placeholder_image(text="Grad-CAM Heatmap")
+    }
 
 # --- HELPER FUNCTIONS ---
 def create_placeholder_image(size=(512, 512), text="Placeholder"):
     img = Image.new('RGB', size, color='grey')
     return img
-
-# Create a placeholder heatmap if it doesn't exist
-try:
-    placeholder_heatmap = Image.open("placeholder_heatmap.png")
-except FileNotFoundError:
-    placeholder_heatmap = create_placeholder_image(text="Grad-CAM Heatmap")
-    placeholder_heatmap.save("placeholder_heatmap.png")
 
 # --- UI MARKDOWN STYLES ---
 st.markdown("""
@@ -53,16 +56,11 @@ st.markdown("""
     text-align: center;
     transition: all 0.3s ease;
 }
-.severity-box.highlight {
-    border: 3px solid #000000;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    transform: scale(1.05);
-}
-.severity-0 { background-color: #d4edda; border-color: #c3e6cb; } /* Green */
-.severity-1 { background-color: #d4edda; border-color: #c3e6cb; } /* Green */
-.severity-2 { background-color: #fff3cd; border-color: #ffeeba; } /* Yellow */
-.severity-3 { background-color: #f8d7da; border-color: #f5c6cb; } /* Red */
-.severity-4 { background-color: #f8d7da; border-color: #f5c6cb; } /* Red */
+.severity-box.severity-0 { background-color: #A5D6A7; border-color: #81C784; } /* Brighter Green */
+.severity-box.severity-1 { background-color: #A5D6A7; border-color: #81C784; } /* Brighter Green */
+.severity-box.severity-2 { background-color: #FFF176; border-color: #FFEB3B; } /* Brighter Yellow */
+.severity-box.severity-3 { background-color: #EF9A9A; border-color: #E57373; } /* Brighter Red */
+.severity-box.severity-4 { background-color: #EF9A9A; border-color: #E57373; } /* Brighter Red */
 
 .stButton>button {
     height: 3em;
@@ -70,10 +68,6 @@ st.markdown("""
 }
 </style>
 """, unsafe_allow_html=True)
-
-# --- PAGE CONFIG ---
-st.set_page_config(page_title="Diagnosis Tool", page_icon="🩺", layout="wide")
-
 
 # --- ICDR SCALE & LINKS DATA ---
 ICDR_SCALE_INFO = {
@@ -107,91 +101,76 @@ RELATED_LINKS = {
     ]
 }
 
-
-# --- UI LAYOUT ---
+# --- PAGE LAYOUT ---
 st.title("🩺 Diabetic Retinopathy Diagnosis Interface")
-st.markdown(
-    "Upload a retinal fundus image to get an AI-powered diagnosis and explanation."
-)
+st.markdown("Upload a retinal fundus image to get an AI-powered diagnosis and explanation.")
+
+# ICDR Scale at the top of the page
+st.subheader("ICDR Severity Scale")
+st.markdown("The AI model classifies images into these stages based on the following scale:")
+cols = st.columns(5)
+for stage, info in ICDR_SCALE_INFO.items():
+    with cols[stage]:
+        st.markdown(
+            f'<div class="severity-box {info["color_class"]}">'
+            f'<b>Stage {stage}</b><br>{info["name"]}'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
+st.markdown("---")
 
 # Initialize session state to store the prediction result
 if 'prediction' not in st.session_state:
     st.session_state.prediction = None
 
+# Single image upload and diagnosis
+st.header("Image for Analysis")
+uploaded_file = st.file_uploader(
+    "Choose a retinal image...", type=["jpg", "png", "jpeg"], key="main_uploader"
+)
 
-# --- SIDEBAR ---
-with st.sidebar:
-    st.title("ICDR Severity Scale")
-    st.markdown("The model classifies images according to the following stages:")
+if uploaded_file is not None:
+    image = Image.open(uploaded_file)
+    st.image(image, caption="Uploaded Retinal Image", use_column_width=True)
 
-    # Display the ICDR scale with colors and highlighting
-    for stage, info in ICDR_SCALE_INFO.items():
-        highlight_class = "highlight" if st.session_state.prediction and st.session_state.prediction['stage'] == stage else ""
-        pointer = "👈" if st.session_state.prediction and st.session_state.prediction['stage'] == stage else ""
-        st.markdown(
-            f'<div class="severity-box {info["color_class"]} {highlight_class}">'
-            f'<b>Stage {stage}:</b> {info["name"]} {pointer}'
-            f'</div>',
-            unsafe_allow_html=True
-        )
+    if st.button("Diagnose Image", use_container_width=True, type="primary"):
+        st.session_state.prediction = get_dummy_prediction(np.array(image))
+        # Rerun to update the UI with the result
+        st.experimental_rerun()
 
+# --- DISPLAY RESULTS (if a prediction has been made) ---
+if st.session_state.prediction:
+    pred = st.session_state.prediction
+    
+    st.markdown("---")
+    st.subheader("🤖 AI Diagnosis Results")
 
-# --- MAIN PAGE LAYOUT ---
-col1, col2 = st.columns(2)
+    # Bar chart showing confidence for all stages
+    st.markdown("##### Model Confidence by Stage")
+    df = pd.DataFrame(pred['all_confidences'])
+    df['Confidence'] = df['Confidence'].map('{:.2%}'.format)
+    st.bar_chart(df, x="Stage", y="Confidence")
 
-with col1:
-    st.header("Image for Analysis")
-    uploaded_file = st.file_uploader(
-        "Choose a retinal image...", type=["jpg", "png", "jpeg"], key="main_uploader"
+    # Text box for the main diagnosis
+    severity_class = ICDR_SCALE_INFO[pred['stage']]['color_class']
+    st.markdown(
+        f'<div class="severity-box {severity_class}">'
+        f'<h3>{pred["stage_name"]}</h3>'
+        f'Confidence: <b>{pred["confidence"]:.2%}</b>'
+        f'</div>',
+        unsafe_allow_html=True
     )
 
-    if uploaded_file is not None:
-        image = Image.open(uploaded_file)
-        st.image(image, caption="Uploaded Retinal Image", use_column_width=True)
+    st.subheader("Explainability: What the AI is looking at")
+    st.image(
+        pred['heatmap'],
+        caption="A Grad-CAM Heatmap shows the areas the model focused on to make its diagnosis. Warmer colors indicate higher importance.",
+        use_column_width=True
+    ) 
 
-        if st.button("Diagnose Image", use_container_width=True, type="primary"):
-            st.session_state.prediction = get_dummy_prediction(np.array(image))
-            # Rerun to update the UI with the result
-            st.experimental_rerun()
-
-    # --- DISPLAY RESULTS (if a prediction has been made) ---
-    if st.session_state.prediction:
-        pred = st.session_state.prediction
-        
-        st.subheader("🤖 AI Diagnosis Results")
-        
-        # Determine color based on severity
-        severity_class = ICDR_SCALE_INFO[pred['stage']]['color_class']
-        st.markdown(
-            f'<div class="severity-box {severity_class}">'
-            f'<h3>{pred["stage_name"]}</h3>'
-            f'Confidence: <b>{pred["confidence"]:.2%}</b>'
-            f'</div>',
-            unsafe_allow_html=True
-        )
-        
-        st.subheader("Explainability: What the AI is looking at")
-        st.image(
-            pred['heatmap'],
-            caption="Grad-CAM Heatmap shows areas the model focused on.",
-            use_column_width=True
-        )
-
-        # --- DISPLAY RELATED LINKS ---
-        st.subheader("📚 Learn More About This Stage")
-        links = RELATED_LINKS.get(pred['stage'], [])
-        for link in links:
-            st.markdown(f"- [{link['text']}]({link['url']})", unsafe_allow_html=True)
-
-
-with col2:
-    st.header("Comparison Image")
-    comparison_file = st.file_uploader(
-        "Upload a reference image (e.g., a healthy retina)...", type=["jpg", "png", "jpeg"], key="comp_uploader"
-    )
-
-    if comparison_file is not None:
-        comp_image = Image.open(comparison_file)
-        st.image(comp_image, caption="Reference Image", use_column_width=True)
-    else:
-        st.info("Upload a second image here to compare side-by-side.")
+    # --- DISPLAY RELATED LINKS ---
+    st.subheader("📚 Learn More About This Stage")
+    links = RELATED_LINKS.get(pred['stage'], [])
+    for link in links:
+        st.markdown(f"- [{link['text']}]({link['url']})", unsafe_allow_html=True)
