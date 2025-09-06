@@ -7,8 +7,8 @@ from PIL import Image
 # Set the page configuration
 # This must be the first Streamlit command in your script
 st.set_page_config(
-    page_title="DR-AI-Vision | Home",
-    page_icon="👁️",
+    page_title="Diabetic Retinopathy AI",
+    page_icon="favicon1.png",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -74,10 +74,10 @@ st.sidebar.info(
     """
     **Project:** DR-AI-Vision (Hackathon)
 
-    - **UI/UX Person A**
-    - **UI/UX Person B**
-    - **AI Core Person A**
-    - **AI Core Person B**
-    - **AI Support/Deployment Person**
+    - **Arya**
+    - **Yogendra**
+    - **Yuvraj**
+    - **Adrien**
+    - **Casseeram**
     """
 )
